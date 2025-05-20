@@ -1,38 +1,89 @@
-document.addEventListener('DOMContentLoaded', () => {
-  let peer = new Peer();
-  let localStream = null;
-  let micTrack = null;
-  let conn = null;
+$(document).ready(() => {
+    const $myIdEl = $("#my-id");
+    const $usernameInput = $("#username-input");
+    const $genderInput = $("#gender-input");
+    const $roleInput = $("#role-input");
+    const $ageInput = $("#age-input");
+    const $avatarInput = $("#avatar-input");
 
-  peer.on("open", id => {
-    const myIdEl = document.getElementById("my-id");
-    if (myIdEl) myIdEl.textContent = id;
-  });
+    const $usernameEl = $("#username");
+    const $roleEl = $("#role");
+    const $avatarEl = $("#avatar");
 
-  function saveUserInfo() {
-    const usernameInput = document.getElementById("username-input");
-    const genderInput = document.getElementById("gender-input");
-    const roleInput = document.getElementById("role-input");
-    const ageInput = document.getElementById("age-input");
-    const avatarInput = document.getElementById("avatar-input");
+    const $slaveVideo = $("#slaveVideo");
+    const $slaveControls = $("#slave-controls");
+    const $viewerControls = $("#viewer-controls");
+    const $mainControl = $("#main-control");
 
-    if (!usernameInput || !genderInput || !roleInput || !ageInput || !avatarInput) {
-      alert("User input elements missing");
-      return;
+    const $micGain = $("#micGain");
+    const $micMeter = $("#micMeter");
+    const $muteBtn = $("#muteBtn");
+
+    const $otherIdInput = $("#other-id");
+    const $remoteVolume = $("#remoteVolume");
+    const $remoteMuteBtn = $("#remoteMuteBtn");
+
+    const $chatBox = $("#chat-box");
+    const $chatInput = $("#chat-input");
+
+    const $modal = $("#user-setup-modal");
+
+    let peer = new Peer();
+    let localStream = null;
+    let micTrack = null;
+    let conn = null;
+    let currentCall = null;
+    let incomingCall = null;
+
+    peer.on("open", id => {
+    $myIdEl.text(id);
+    let gender = null;
+    const userInfoStr = localStorage.getItem("userInfo");
+    if (userInfoStr) {
+      try {
+        const userInfo = JSON.parse(userInfoStr);
+        gender = userInfo.gender;
+      } catch {}
+      $modal.hide();
     }
 
-    const username = usernameInput.value.trim();
-    const gender = genderInput.value;
-    const role = roleInput.value;
-    const age = parseInt(ageInput.value, 10);
-    const avatarFile = avatarInput.files[0];
+    if (!gender) {
+      gender = $genderInput.val();
+    }
+
+    if (gender !== "Man") {
+      getLocalStream();
+    } else {
+      appendMessage("Daddy view only. No mic/cam active.", "System");
+    }
+
+    });
+
+
+    async function getLocalStream() {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      micTrack = localStream.getAudioTracks()[0];
+      $slaveVideo[0].srcObject = localStream;
+      setupAudioAnalysis(localStream);
+    } catch (err) {
+      appendMessage("Could not get media: " + err.message, "System");
+    }
+    }
+
+    function saveUserInfo() {
+    const username = $usernameInput.val().trim();
+    const gender = $genderInput.val();
+    const role = $roleInput.val();
+    const age = parseInt($ageInput.val(), 10);
+    const avatarFile = $avatarInput[0].files[0];
 
     if (!username || !gender || !role || isNaN(age)) {
-      alert("Please fill all fields correctly");
+      appendMessage("Please fill all fields", "System");
       return;
     }
     if (age < 18) {
-      alert("You must be 18 or older");
+      appendMessage("Must be 18+", "System");
       return;
     }
 
@@ -41,16 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     localStorage.setItem("userInfo", JSON.stringify({ username, gender, role, avatar: avatarURL }));
 
-    const modal = document.getElementById("user-setup-modal");
-    if (modal) modal.style.display = "none";
-
+    $modal.hide();
     updateUserInfo();
-  }
+    }
 
-  function updateUserInfo() {
+    function updateUserInfo() {
     const dataStr = localStorage.getItem("userInfo");
     if (!dataStr) return;
-
     let data;
     try {
       data = JSON.parse(dataStr);
@@ -58,52 +106,21 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const usernameEl = document.getElementById("username");
-    const roleEl = document.getElementById("role");
-    const avatarEl = document.getElementById("avatar");
+    $usernameEl.text(data.username || "");
+    $roleEl.text(data.role || "");
+    $avatarEl.attr("src", data.avatar || "https://i.pravatar.cc/40?u=default");
+    }
 
-    if (usernameEl) usernameEl.textContent = data.username || "";
-    if (roleEl) roleEl.textContent = data.role || "";
-    if (avatarEl) avatarEl.src = data.avatar || "https://i.pravatar.cc/40?u=default";
-  }
-
-  function handleGenderChange() {
-    const genderInput = document.getElementById("gender-input");
-    const roleInput = document.getElementById("role-input");
-    if (!genderInput || !roleInput) return;
-
-    if (genderInput.value === "Man") {
-      roleInput.value = "Daddy";
-      roleInput.disabled = true;
+    function handleGenderChange() {
+    if ($genderInput.val() === "Man") {
+      $roleInput.val("Daddy");
+      $roleInput.prop("disabled", true);
     } else {
-      roleInput.disabled = false;
+      $roleInput.prop("disabled", false);
     }
-  }
-
-  async function startBroadcast() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localStream = stream;
-      micTrack = stream.getAudioTracks()[0];
-
-      const slaveVideo = document.getElementById("slaveVideo");
-      if (slaveVideo) slaveVideo.srcObject = stream;
-
-      document.getElementById("slave-controls")?.classList.remove("hidden");
-      document.getElementById("viewer-controls")?.classList.add("hidden");
-      document.getElementById("main-control")?.classList.add("hidden");
-
-      peer.on("call", call => {
-        call.answer(stream);
-      });
-
-      setupAudioAnalysis(stream);
-    } catch (e) {
-      alert("Could not start broadcast: " + e.message);
     }
-  }
 
-  function setupAudioAnalysis(stream) {
+    function setupAudioAnalysis(stream) {
     const audioContext = new AudioContext();
     const source = audioContext.createMediaStreamSource(stream);
     const gainNode = audioContext.createGain();
@@ -113,130 +130,73 @@ document.addEventListener('DOMContentLoaded', () => {
     gainNode.connect(analyser);
     analyser.connect(audioContext.destination);
 
-    const micGain = document.getElementById("micGain");
-    if (micGain) {
-      micGain.oninput = e => gainNode.gain.value = parseFloat(e.target.value);
-    }
+    $micGain.on("input", e => {
+      gainNode.gain.value = parseFloat(e.target.value);
+    });
 
-    const micMeter = document.getElementById("micMeter");
     function updateMeter() {
-      if (!analyser || !micMeter) return;
+      if (!$micMeter.length) return;
       const buffer = new Uint8Array(analyser.frequencyBinCount);
       analyser.getByteFrequencyData(buffer);
       const avg = buffer.reduce((a, b) => a + b, 0) / buffer.length / 255;
-      micMeter.value = avg;
+      $micMeter.val(avg);
       requestAnimationFrame(updateMeter);
     }
     updateMeter();
-  }
+    }
 
-  function toggleMute() {
+    function toggleMute() {
     if (!localStream || !micTrack) return;
     micTrack.enabled = !micTrack.enabled;
 
-    const muteBtn = document.getElementById("muteBtn");
-    const icon = muteBtn?.querySelector("i");
-    if (icon) icon.className = micTrack.enabled ? "fa-solid fa-microphone" : "fa-solid fa-microphone-slash";
-  }
-
-  async function startViewing() {
-    const otherIdInput = document.getElementById("other-id");
-    if (!otherIdInput) return alert("Other ID input not found");
-    const otherId = otherIdInput.value.trim();
-    if (!otherId) return alert("Enter an ID to connect to");
-
-    if (!localStream) {
-      try {
-        await startBroadcast();
-      } catch (e) {
-        return;
-      }
+    const $icon = $muteBtn.find("i");
+    if ($icon.length) {
+      $icon.attr("class", micTrack.enabled ? "fa-solid fa-microphone" : "fa-solid fa-microphone-slash");
+    }
     }
 
-    const call = peer.call(otherId, localStream);
-    if (!call) return alert("Failed to call peer");
+    function toggleRemoteMute() {
+    if (!$slaveVideo.length) return;
+    $slaveVideo[0].muted = !$slaveVideo[0].muted;
 
-    document.getElementById("viewer-controls")?.classList.remove("hidden");
-    document.getElementById("slave-controls")?.classList.add("hidden");
-    document.getElementById("main-control")?.classList.add("hidden");
+    const $icon = $remoteMuteBtn.find("i");
+    if ($icon.length) {
+      $icon.attr("class", $slaveVideo[0].muted ? "fa-solid fa-volume-xmark" : "fa-solid fa-volume-high");
+    }
+    }
 
-    call.on("stream", stream => {
-      const video = document.getElementById("slaveVideo");
-      if (!video) return;
+    function appendMessage(text, sender = "You") {
+    if (!$chatBox.length) return;
+    const $msgDiv = $("<div>").addClass("mb-1");
+    const $senderSpan = $("<span>").text(sender + ": ").css({ "font-weight": "bold", color: sender === "You" ? "#a5b4fc" : "#facc15" });
+    const $textSpan = $("<span>").text(text);
+    $msgDiv.append($senderSpan, $textSpan);
+    $chatBox.append($msgDiv);
+    $chatBox.scrollTop($chatBox.prop("scrollHeight"));
+    }
 
-      video.srcObject = stream;
-      const volumeSlider = document.getElementById("remoteVolume");
-      if (volumeSlider) {
-        video.volume = parseFloat(volumeSlider.value) || 1;
-        volumeSlider.oninput = () => video.volume = parseFloat(volumeSlider.value) || 1;
-      }
-    });
-
-    conn = peer.connect(otherId);
-    setupDataConnection(conn, true);
-  }
-
-  function toggleRemoteMute() {
-    const video = document.getElementById("slaveVideo");
-    if (!video) return;
-
-    video.muted = !video.muted;
-    const icon = document.getElementById("remoteMuteBtn")?.querySelector("i");
-    if (icon) icon.className = video.muted ? "fa-solid fa-volume-xmark" : "fa-solid fa-volume-high";
-  }
-
-  function appendMessage(text, sender = "You") {
-    const chatBox = document.getElementById("chat-box");
-    if (!chatBox) return;
-
-    const msgDiv = document.createElement("div");
-    msgDiv.className = "mb-1";
-
-    const senderSpan = document.createElement("span");
-    senderSpan.textContent = sender + ": ";
-    senderSpan.style.fontWeight = "bold";
-    senderSpan.style.color = sender === "You" ? "#a5b4fc" : "#facc15";
-
-    const textSpan = document.createElement("span");
-    textSpan.textContent = text;
-
-    msgDiv.appendChild(senderSpan);
-    msgDiv.appendChild(textSpan);
-
-    chatBox.appendChild(msgDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-
-  function sendMessage() {
-    const input = document.getElementById("chat-input");
-    if (!input) return;
-    const message = input.value.trim();
+    function sendMessage() {
+    const message = $chatInput.val().trim();
     if (!message) return;
     if (!conn?.open) {
-      appendMessage("Connection not established. Please connect first.", "System");
+      appendMessage("Not connected", "System");
       return;
     }
     appendMessage(message, "You");
     conn.send(message);
-    input.value = "";
-  }
+    $chatInput.val("");
+    }
 
-  function setupDataConnection(connection, isOutgoing = false) {
-    if (!connection) return;
-
+    function setupDataConnection(connection) {
     connection.on("open", () => {
-      const data = JSON.parse(localStorage.getItem("userInfo") || "{}");
-      const { gender, role, username } = data;
-      let message = "Connected.";
+      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+      const { username, gender, role } = userInfo;
+      const greeting = gender === "Man"
+        ? `Slave ${username} connected. Awaiting commands.`
+        : `${role} ${username} is in control.`;
 
-      if (gender === "Man") {
-        message = `connections to ${gender} slave ${username} was successfully. You are now in control.`;
-      } else {
-        message = `${role} ${username} is now in control of you.`;
-      }
-
-      connection.send(message);
-      appendMessage("Chat connection opened.", "System");
+      connection.send(greeting);
+      appendMessage("Chat connected", "System");
     });
 
     connection.on("data", data => {
@@ -244,49 +204,123 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     connection.on("close", () => {
-      appendMessage("Chat connection closed.", "System");
+      appendMessage("Chat disconnected", "System");
     });
 
     connection.on("error", err => {
       appendMessage("Chat error: " + err, "System");
     });
-  }
+    }
 
-  peer.on("connection", connection => {
-    conn = connection;
+    peer.on("connection", incoming => {
+    conn = incoming;
     setupDataConnection(conn);
-  });
+    });
 
-  const chatInput = document.getElementById("chat-input");
-  if (chatInput) {
-    chatInput.addEventListener("keydown", e => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+
+    peer.on("call", call => {
+      incomingCall = call; // ✅ Assign incomingCall so it can be answered manually if desired
+
+      const gender = JSON.parse(localStorage.getItem("userInfo") || "{}").gender;
+      if (gender === "Man") {
+        appendMessage("Slave is calling. Accepting for viewing...", "System");
+
+        call.answer(); // Viewer answers with no stream
+
+        call.on("stream", remoteStream => {
+          $slaveVideo[0].srcObject = remoteStream;
+          appendMessage("Viewing live stream", "System");
+        });
+
+        currentCall = call;
+      } else {
+        appendMessage("Incoming call. Click 'Answer Call' to accept.", "System");
       }
     });
-  }
 
-  window.saveUserInfo = saveUserInfo;
-  window.handleGenderChange = handleGenderChange;
-  window.startBroadcast = startBroadcast;
-  window.toggleMute = toggleMute;
-  window.startViewing = startViewing;
-  window.toggleRemoteMute = toggleRemoteMute;
+    $("#connect-btn").on("click", () => {
+    const remoteId = $otherIdInput.val().trim();
+    if (!remoteId) return appendMessage("Enter a valid ID", "System");
 
-  const userInfo = localStorage.getItem("userInfo");
-  const modal = document.getElementById("user-setup-modal");
+    conn = peer.connect(remoteId);
+    setupDataConnection(conn);
 
-  if (!userInfo && modal) {
-    modal.style.display = "block";
-  } else {
-    modal.style.display = "none";
-    updateUserInfo();
-  }
-
-  window.addEventListener("click", event => {
-    if (event.target === modal) {
-      modal.style.display = "none";
+    const gender = JSON.parse(localStorage.getItem("userInfo") || "{}").gender;
+    if (gender !== "Man") {
+      const call = peer.call(remoteId, localStream);
+      currentCall = call;
+      appendMessage("Calling Daddy...", "System");
     }
-  });
+    });
+
+    $("#send-btn").on("click", sendMessage);
+    $chatInput.on("keypress", e => { if (e.which === 13) sendMessage(); });
+    $muteBtn.on("click", toggleMute);
+    $remoteMuteBtn.on("click", toggleRemoteMute);
+    $genderInput.on("change", handleGenderChange);
+    $("#save-user-btn").on("click", saveUserInfo);
+    $("#start-call-btn").on("click", () => {
+      const remoteId = $otherIdInput.val().trim();
+      if (!remoteId) return appendMessage("Enter a valid ID", "System");
+
+      if (!localStream) {
+        appendMessage("No media stream available", "System");
+        return;
+      }
+
+      const call = peer.call(remoteId, localStream);
+      currentCall = call;
+      appendMessage("Calling peer...", "System");
+
+      call.on("stream", remoteStream => {
+        $slaveVideo[0].srcObject = remoteStream;
+        appendMessage("Receiving video stream", "System");
+      });
+
+      call.on("close", () => {
+        appendMessage("Call ended", "System");
+      });
+
+      call.on("error", err => {
+        appendMessage("Call error: " + err.message, "System");
+      });
+    });
+
+    $("#answer-call-btn").on("click", () => {
+        if (!incomingCall) {
+          appendMessage("No call to answer", "System");
+          return;
+        }
+
+        const gender = JSON.parse(localStorage.getItem("userInfo") || "{}").gender;
+        if (gender === "Man") {
+          incomingCall.answer(); // Viewer answers with no stream
+        } else {
+          if (!localStream) {
+            appendMessage("No media stream available", "System");
+            return;
+          }
+          incomingCall.answer(localStream); // Slave answers with stream
+        }
+
+        appendMessage("Call answered", "System");
+
+        incomingCall.on("stream", remoteStream => {
+          $slaveVideo[0].srcObject = remoteStream;
+          appendMessage("Receiving video stream", "System");
+        });
+
+        incomingCall.on("close", () => {
+          appendMessage("Call ended", "System");
+        });
+
+        incomingCall.on("error", err => {
+          appendMessage("Call error: " + err.message, "System");
+        });
+
+        currentCall = incomingCall;
+        incomingCall = null; // Clear after answering
+      });
+
+    updateUserInfo();
 });

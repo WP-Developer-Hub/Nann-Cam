@@ -13,6 +13,8 @@
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
   />
 
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
   <style>
     #chat-box {
       scrollbar-width: thin;
@@ -35,7 +37,7 @@
       <h2 class="text-lg font-bold text-center">Welcome to FemCity</h2>
       <input id="username-input" type="text" placeholder="Username" class="w-full p-2 rounded bg-gray-700 text-white" autocomplete="off" />
       <input id="age-input" type="number" min="18" max="30" placeholder="Age" class="w-full p-2 rounded bg-gray-700 text-white" />
-      <select id="gender-input" class="w-full p-2 rounded bg-gray-700 text-white" onchange="handleGenderChange()">
+      <select id="gender-input" class="w-full p-2 rounded bg-gray-700 text-white">
         <option value="">Select Gender</option>
         <option value="Man">Man</option>
         <option value="Femboy">Femboy</option>
@@ -50,7 +52,7 @@
         <option value="Slave">Slave</option>
       </select>
       <input id="avatar-input" type="file" accept="image/*" class="w-full p-2 bg-gray-700 text-white rounded" />
-      <button type="button" onclick="saveUserInfo()" class="w-full bg-green-600 hover:bg-green-700 p-2 rounded">Enter</button>
+      <button id="save-user-btn" type="button" class="w-full bg-green-600 hover:bg-green-700 p-2 rounded">Enter</button>
     </div>
   </div>
 
@@ -91,7 +93,6 @@
             </label>
             <button
               type="button"
-              onclick="toggleMute()"
               id="muteBtn"
               class="bg-red-600 hover:bg-red-700 px-4 py-1 h-10 text-sm rounded w-10 sm:w-auto flex items-center justify-center gap-2"
             >
@@ -119,7 +120,6 @@
           >
             <button
               type="button"
-              onclick="toggleRemoteMute()"
               id="remoteMuteBtn"
               class="bg-yellow-600 hover:bg-yellow-700 px-4 py-1 h-10 text-sm rounded w-10 sm:w-auto flex items-center justify-center gap-2"
             >
@@ -160,7 +160,7 @@
 
           <button
             type="button"
-            onclick="startBroadcast()"
+            id="start-call-btn"
             title="Broadcast"
             class="p-2 rounded bg-blue-600 hover:bg-blue-700 flex items-center justify-center"
             aria-label="Broadcast"
@@ -170,7 +170,7 @@
 
           <button
             type="button"
-            onclick="startViewing()"
+            id="answer-call-btn"
             title="View"
             class="p-2 rounded bg-green-600 hover:bg-green-700 flex items-center justify-center"
             aria-label="View"
@@ -194,11 +194,11 @@
           id="chat-input"
           placeholder="Type a message..."
           class="w-full p-2 rounded bg-gray-700 text-white resize-none"
+          rows="3"
           autocomplete="off"
         ></textarea>
         <button
           type="button"
-          onclick="sendMessage()"
           class="mt-2 bg-indigo-600 hover:bg-indigo-700 p-2 rounded"
         >
           Send
@@ -206,7 +206,6 @@
       </div>
     </div>
   </div>
-
   <script src="app.js"></script>
 </body>
 </html>
