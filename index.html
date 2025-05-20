@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FemCity Connect</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome CDN -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
+
+  <style>
+    #chat-box {
+      scrollbar-width: thin;
+      scrollbar-color: #4a5568 transparent;
+    }
+    #chat-box::-webkit-scrollbar {
+      width: 6px;
+    }
+    #chat-box::-webkit-scrollbar-thumb {
+      background-color: #4a5568;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white font-sans h-screen overflow-hidden">
+
+  <!-- Modal for user info -->
+  <div id="user-setup-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
+    <div class="bg-gray-800 p-6 rounded-lg space-y-4 w-80">
+      <h2 class="text-lg font-bold text-center">Welcome to FemCity</h2>
+      <input id="username-input" type="text" placeholder="Username" class="w-full p-2 rounded bg-gray-700 text-white" autocomplete="off" />
+      <input id="age-input" type="number" min="18" max="30" placeholder="Age" class="w-full p-2 rounded bg-gray-700 text-white" />
+      <select id="gender-input" class="w-full p-2 rounded bg-gray-700 text-white" onchange="handleGenderChange()">
+        <option value="">Select Gender</option>
+        <option value="Man">Man</option>
+        <option value="Femboy">Femboy</option>
+        <option value="Ladyboy">Ladyboy</option>
+        <option value="Shemale">Shemale</option>
+        <option value="Trans Woman">Trans Woman</option>
+        <option value="Feminine Sissy">Feminine Sissy</option>
+      </select>
+      <select id="role-input" class="w-full p-2 rounded bg-gray-700 text-white">
+        <option value="">Select Role</option>
+        <option value="Daddy">Daddy</option>
+        <option value="Slave">Slave</option>
+      </select>
+      <input id="avatar-input" type="file" accept="image/*" class="w-full p-2 bg-gray-700 text-white rounded" />
+      <button type="button" onclick="saveUserInfo()" class="w-full bg-green-600 hover:bg-green-700 p-2 rounded">Enter</button>
+    </div>
+  </div>
+
+  <!-- App Layout -->
+  <div class="flex flex-col h-full">
+    <!-- Header -->
+    <div class="p-4 flex justify-between items-center bg-gray-800 shadow flex-wrap gap-4">
+      <div class="flex items-center space-x-4 flex-grow min-w-[200px]">
+        <img id="avatar" class="w-10 h-10 rounded-full" src="https://i.pravatar.cc/40?u=default" alt="Avatar" />
+        <div>
+          <div id="username" class="font-bold">Username</div>
+          <div id="role" class="text-sm text-gray-400">Role</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 overflow-hidden h-full">
+      <!-- Left: Video Area -->
+      <div class="flex flex-col flex-1 p-4 overflow-hidden">
+        <!-- Video + overlays wrapper -->
+        <div class="relative w-full h-full rounded-lg bg-black shadow-lg overflow-hidden">
+          <video
+            id="slaveVideo"
+            autoplay
+            playsinline
+            class="w-full h-full object-contain"
+          ></video>
+
+          <!-- Slave Controls Overlay -->
+          <div
+            id="slave-controls"
+            class="hidden absolute bottom-0 left-0 w-full bg-gray-800 bg-opacity-90 p-4 flex flex-col sm:flex-row items-center gap-4 hidden z-10"
+          >
+            <label class="text-xs w-full sm:w-32"
+              >Mic Gain
+              <input type="range" id="micGain" min="0" max="2" step="0.01" value="1" class="w-full" />
+            </label>
+            <button
+              type="button"
+              onclick="toggleMute()"
+              id="muteBtn"
+              class="bg-red-600 hover:bg-red-700 px-4 py-1 h-10 text-sm rounded w-10 sm:w-auto flex items-center justify-center gap-2"
+            >
+              <i class="fas fa-microphone h-32"></i>
+            </button>
+            <label class="text-xs w-full sm:w-32"
+              >Mic Level
+              <meter
+                id="micMeter"
+                min="0"
+                max="1"
+                low="0.1"
+                high="0.6"
+                optimum="0.2"
+                value="0"
+                class="w-full"
+              ></meter>
+            </label>
+          </div>
+
+          <!-- Viewer Controls Overlay -->
+          <div
+            id="viewer-controls"
+            class="hidden absolute bottom-0 left-0 w-full bg-gray-800 bg-opacity-90 p-4 flex flex-col sm:flex-row justify-between items-center gap-4 hidden z-10"
+          >
+            <button
+              type="button"
+              onclick="toggleRemoteMute()"
+              id="remoteMuteBtn"
+              class="bg-yellow-600 hover:bg-yellow-700 px-4 py-1 h-10 text-sm rounded w-10 sm:w-auto flex items-center justify-center gap-2"
+            >
+              <i class="fas fa-volume-mute"></i>
+            </button>
+            <label class="text-xs w-full sm:w-32"
+              >Volume
+              <input
+                type="range"
+                id="remoteVolume"
+                min="0"
+                max="1"
+                step="0.01"
+                value="1"
+                class="w-full"
+              />
+            </label>
+          </div>
+        </div>
+
+        <!-- Controls under video -->
+        <div
+          id="main-control" class="mt-4 flex flex-wrap gap-3 items-center justify-start bg-gray-800 p-3 rounded shadow"
+        >
+          <span class="text-sm text-gray-400 select-none">Your ID:</span>
+          <span
+            id="my-id"
+            class="font-mono bg-gray-700 px-2 py-1 rounded text-green-400 select-all cursor-pointer"
+            >...</span
+          >
+
+          <input
+            id="other-id"
+            type="text"
+            placeholder="Enter ID to connect"
+            class="flex-grow min-w-[150px] p-2 rounded bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+
+          <button
+            type="button"
+            onclick="startBroadcast()"
+            title="Broadcast"
+            class="p-2 rounded bg-blue-600 hover:bg-blue-700 flex items-center justify-center"
+            aria-label="Broadcast"
+          >
+            <i class="fas fa-broadcast-tower text-white"></i>
+          </button>
+
+          <button
+            type="button"
+            onclick="startViewing()"
+            title="View"
+            class="p-2 rounded bg-green-600 hover:bg-green-700 flex items-center justify-center"
+            aria-label="View"
+          >
+            <i class="fas fa-eye text-white"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Call Panel with Chat -->
+      <div
+        class="w-96 p-4 bg-gray-800 border-l border-gray-700 flex flex-col h-full"
+      >
+        <div
+          id="chat-box"
+          class="flex-grow mb-2 p-2 bg-gray-700 rounded overflow-y-auto text-sm"
+        >
+          <!-- Chat messages will appear here -->
+        </div>
+        <textarea
+          id="chat-input"
+          placeholder="Type a message..."
+          class="w-full p-2 rounded bg-gray-700 text-white resize-none"
+          rows="3"
+          autocomplete="off"
+        ></textarea>
+        <button
+          type="button"
+          onclick="sendMessage()"
+          class="mt-2 bg-indigo-600 hover:bg-indigo-700 p-2 rounded"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
